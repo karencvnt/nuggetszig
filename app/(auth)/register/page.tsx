@@ -1,0 +1,187 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { z } from "zod";
+
+const schema = z
+  .object({
+    name: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
+    email: z.string().email("E-mail inválido"),
+    password: z
+      .string()
+      .min(10, "Mínimo de 10 caracteres")
+      .regex(/[A-Z]/, "Precisa de ao menos uma letra maiúscula")
+      .regex(/[a-z]/, "Precisa de ao menos uma letra minúscula")
+      .regex(/[0-9]/, "Precisa de ao menos um número"),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  if (!password) return { score: 0, label: "", color: "" };
+  let score = 0;
+  if (password.length >= 10) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  if (score <= 2) return { score, label: "Fraca", color: "bg-error-500" };
+  if (score <= 3) return { score, label: "Média", color: "bg-warning-500" };
+  return { score, label: "Forte", color: "bg-success-500" };
+}
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  const strength = getPasswordStrength(form.password);
+
+  function update(field: string, value: string) {
+    setForm((f) => ({ ...f, [field]: value }));
+    if (fieldErrors[field]) setFieldErrors((e) => ({ ...e, [field]: "" }));
+  }
+
+  function validate() {
+    const result = schema.safeParse(form);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.issues.forEach((i) => { errors[i.path[0] as string] = i.message; });
+      setFieldErrors(errors);
+      return false;
+    }
+    setFieldErrors({});
+    return true;
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!validate()) return;
+    setError("");
+
+    startTransition(async () => {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
+      });
+
+      if (res.ok) {
+        router.push("/verify-email?sent=true");
+      } else {
+        const data = await res.json();
+        setError(data.error ?? "Erro ao criar conta. Tente novamente.");
+      }
+    });
+  }
+
+  return (
+    <>
+      <h2 className="text-xl font-semibold text-neutral-900 mb-6">Criar conta</h2>
+
+      {error && (
+        <div className="mb-4 px-4 py-3 bg-error-50 text-error-700 rounded-lg text-sm">{error}</div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <Field label="Nome completo" error={fieldErrors.name}>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => update("name", e.target.value)}
+            onBlur={validate}
+            placeholder="Seu nome"
+            className={inputClass(!!fieldErrors.name)}
+          />
+        </Field>
+
+        <Field label="E-mail" error={fieldErrors.email}>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => update("email", e.target.value)}
+            onBlur={validate}
+            placeholder="voce@empresa.com"
+            className={inputClass(!!fieldErrors.email)}
+          />
+        </Field>
+
+        <Field label="Senha" error={fieldErrors.password}>
+          <input
+            type="password"
+            value={form.password}
+            onChange={(e) => update("password", e.target.value)}
+            onBlur={validate}
+            className={inputClass(!!fieldErrors.password)}
+          />
+          {form.password && (
+            <div className="mt-2">
+              <div className="flex gap-1 mb-1">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      i <= strength.score ? strength.color : "bg-neutral-200"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-neutral-500">
+                Força da senha: <span className="font-medium">{strength.label}</span>
+              </p>
+            </div>
+          )}
+        </Field>
+
+        <Field label="Confirmar senha" error={fieldErrors.confirmPassword}>
+          <input
+            type="password"
+            value={form.confirmPassword}
+            onChange={(e) => update("confirmPassword", e.target.value)}
+            onBlur={validate}
+            className={inputClass(!!fieldErrors.confirmPassword)}
+          />
+        </Field>
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300 text-white font-semibold rounded-lg text-sm transition-colors mt-2"
+        >
+          {isPending ? "Criando conta…" : "Criar conta"}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-neutral-500">
+        Já tem conta?{" "}
+        <Link href="/login" className="text-brand-600 hover:text-brand-700 font-medium">
+          Entrar
+        </Link>
+      </p>
+    </>
+  );
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-neutral-700 mb-1.5">{label}</label>
+      {children}
+      {error && <p className="mt-1.5 text-xs text-error-600">{error}</p>}
+    </div>
+  );
+}
+
+function inputClass(hasError: boolean) {
+  return `w-full px-3.5 py-2.5 rounded-lg border text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors ${
+    hasError ? "border-error-500" : "border-neutral-300"
+  }`;
+}

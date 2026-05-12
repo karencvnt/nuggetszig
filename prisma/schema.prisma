@@ -69,19 +69,21 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts          Account[]
-  sessions          Session[]
-  nuggets           Nugget[]
-  sources           Source[]
-  collections       Collection[]
-  collectionNuggets CollectionNugget[]
-  participants      Participant[]
-  nuggetTypes       NuggetType[]
-  tags              Tag[]
-  journeys          Journey[]
-  methods           ResearchMethod[]
-  segments          Segment[]
-  interestTags      UserInterestTag[]
+  accounts               Account[]
+  sessions               Session[]
+  nuggets                Nugget[]
+  sources                Source[]
+  collections            Collection[]
+  collectionNuggets      CollectionNugget[]
+  participants           Participant[]
+  nuggetTypes            NuggetType[]
+  tags                   Tag[]
+  journeys               Journey[]
+  methods                ResearchMethod[]
+  segments               Segment[]
+  interestTags           UserInterestTag[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens    PasswordResetToken[]
 
   @@map("users")
 }
@@ -353,6 +355,35 @@ model CollectionNugget {
 
   @@id([collectionId, nuggetId])
   @@map("collection_nuggets")
+}
+
+// ─── Auth tokens ─────────────────────────────────────────────────────────────
+
+model EmailVerificationToken {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  resendCount Int      @default(0)
+  lastSentAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 // ─── User preferences ────────────────────────────────────────────────────────
