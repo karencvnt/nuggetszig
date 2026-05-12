@@ -1,0 +1,369 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth.js required models ────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  VIEWER
+  CONTRIBUTOR
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  role          UserRole  @default(VIEWER)
+  squad         String?
+  avatarUrl     String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  nuggets           Nugget[]
+  sources           Source[]
+  collections       Collection[]
+  collectionNuggets CollectionNugget[]
+  participants      Participant[]
+  nuggetTypes       NuggetType[]
+  tags              Tag[]
+  journeys          Journey[]
+  methods           ResearchMethod[]
+  segments          Segment[]
+  interestTags      UserInterestTag[]
+
+  @@map("users")
+}
+
+// ─── Taxonomy (configurável pelo Admin) ─────────────────────────────────────
+
+model NuggetType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  color       String
+  icon        String
+  description String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  nuggets   Nugget[]
+
+  @@map("nugget_types")
+}
+
+model Tag {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  category    String
+  color       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  nuggets      NuggetTag[]
+  interestTags UserInterestTag[]
+
+  @@map("tags")
+}
+
+model Journey {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  color       String?
+  stages      Json
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  nuggets   Nugget[]
+
+  @@map("journeys")
+}
+
+model ResearchMethod {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  category    String
+  description String?
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sources   Source[]
+
+  @@map("research_methods")
+}
+
+model Segment {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy    User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  participants Participant[]
+
+  @@map("segments")
+}
+
+// ─── Research entities ───────────────────────────────────────────────────────
+
+model Participant {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  segmentId    String?
+  persona      String?
+  usageProfile String?
+  timeAsClient String?
+  region       String?
+  notes        String?
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  segment   Segment?            @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  createdBy User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sources   SourceParticipant[]
+  nuggets   Nugget[]
+
+  @@map("participants")
+}
+
+enum SourceStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Source {
+  id               String       @id @default(uuid())
+  title            String
+  description      String?
+  objective        String?
+  methodId         String
+  squad            String?
+  startDate        DateTime?
+  endDate          DateTime?
+  participantCount Int?
+  artifactUrl      String?
+  status           SourceStatus @default(DRAFT)
+  createdById      String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  method       ResearchMethod      @relation(fields: [methodId], references: [id], onDelete: Restrict)
+  createdBy    User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  participants SourceParticipant[]
+  nuggets      Nugget[]
+
+  @@map("sources")
+}
+
+model SourceParticipant {
+  sourceId      String
+  participantId String
+
+  source      Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, participantId])
+  @@map("source_participants")
+}
+
+// ─── Nugget (entidade central) ───────────────────────────────────────────────
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum Impact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NuggetStatus {
+  NEW
+  VALIDATED
+  INVESTIGATING
+  DISCARDED
+  ADDRESSED
+}
+
+model Nugget {
+  id                String       @id @default(uuid())
+  content           String       @db.Text
+  typeId            String
+  sourceId          String
+  createdById       String
+  participantId     String?
+  journeyId         String?
+  journeyStage      String?
+  sentiment         Sentiment?
+  impact            Impact?
+  status            NuggetStatus @default(NEW)
+  evidenceUrl       String?
+  notes             String?
+  completenessScore Int          @default(0)
+  deletedAt         DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  type          NuggetType         @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  source        Source             @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  createdBy     User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  participant   Participant?       @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  journey       Journey?           @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  tags          NuggetTag[]
+  relationsFrom NuggetRelation[]   @relation("FromNugget")
+  relationsTo   NuggetRelation[]   @relation("ToNugget")
+  collections   CollectionNugget[]
+
+  @@index([typeId, status, createdAt])
+  @@map("nuggets")
+}
+
+model NuggetTag {
+  nuggetId String
+  tagId    String
+
+  nugget Nugget @relation(fields: [nuggetId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([nuggetId, tagId])
+  @@map("nugget_tags")
+}
+
+enum RelationType {
+  COMPLEMENTS
+  CONTRADICTS
+  DEEPENS
+}
+
+model NuggetRelation {
+  fromNuggetId String
+  toNuggetId   String
+  relationType RelationType
+
+  fromNugget Nugget @relation("FromNugget", fields: [fromNuggetId], references: [id], onDelete: Cascade)
+  toNugget   Nugget @relation("ToNugget", fields: [toNuggetId], references: [id], onDelete: Cascade)
+
+  @@id([fromNuggetId, toNuggetId])
+  @@map("nugget_relations")
+}
+
+// ─── Collections ─────────────────────────────────────────────────────────────
+
+enum CollectionVisibility {
+  PRIVATE
+  TEAM
+  COMPANY
+}
+
+model Collection {
+  id          String               @id @default(uuid())
+  title       String
+  description String?
+  context     String?
+  visibility  CollectionVisibility @default(TEAM)
+  createdById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  createdBy User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  nuggets   CollectionNugget[]
+
+  @@map("collections")
+}
+
+model CollectionNugget {
+  collectionId String
+  nuggetId     String
+  note         String?
+  addedById    String
+  addedAt      DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  nugget     Nugget     @relation(fields: [nuggetId], references: [id], onDelete: Cascade)
+  addedBy    User       @relation(fields: [addedById], references: [id], onDelete: Restrict)
+
+  @@id([collectionId, nuggetId])
+  @@map("collection_nuggets")
+}
+
+// ─── User preferences ────────────────────────────────────────────────────────
+
+model UserInterestTag {
+  userId String
+  tagId  String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tagId])
+  @@map("user_interest_tags")
+}
