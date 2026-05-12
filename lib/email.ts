@@ -24,6 +24,21 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   });
 }
 
+export async function sendInviteEmail(email: string, token: string, inviterName: string) {
+  const url = `${appUrl}/verify-email?token=${token}`;
+  await resend.emails.send({
+    from,
+    to: email,
+    subject: `Você foi convidado para o Nuggets`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <h1 style="font-size:24px;font-weight:700;color:#101828;margin-bottom:8px">Bem-vindo ao Nuggets</h1>
+        <p style="color:#475467;margin-bottom:24px">${inviterName} te convidou para a plataforma. Clique no botão abaixo para criar sua senha e ativar sua conta. O link expira em 7 dias.</p>
+        <a href="${url}" style="display:inline-block;background:#444ce7;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Aceitar convite</a>
+      </div>`,
+  });
+}
+
 export async function sendNewLoginEmail(email: string, name: string, ip: string) {
   await resend.emails.send({
     from,
