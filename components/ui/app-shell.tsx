@@ -1,24 +1,34 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Plus } from "lucide-react";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session) redirect("/login");
 
   const isAdmin = session.user.role === "ADMIN";
+  const canCreate = session.user.role !== "VIEWER";
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white border-b border-neutral-200 px-6 h-14 flex items-center justify-between sticky top-0 z-40">
         <nav className="flex items-center gap-1">
-          <Link href="/app" className="font-bold text-neutral-900 mr-4 text-sm">Nuggets</Link>
-          <NavLink href="/app">Repositório</NavLink>
+          <Link href="/app/nuggets" className="font-bold text-neutral-900 mr-4 text-sm">Nuggets</Link>
+          <NavLink href="/app/nuggets">Repositório</NavLink>
           <NavLink href="/app/sources">Fontes</NavLink>
           <NavLink href="/app/participants">Participantes</NavLink>
           {isAdmin && <NavLink href="/app/admin/taxonomy">Admin</NavLink>}
         </nav>
         <div className="flex items-center gap-3">
+          {canCreate && (
+            <Link
+              href="/app/nuggets/new"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors"
+            >
+              <Plus size={13} /> Nugget
+            </Link>
+          )}
           <Link href="/app/account" className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900">
             <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-xs font-bold">
               {(session.user.name ?? "?")[0].toUpperCase()}
