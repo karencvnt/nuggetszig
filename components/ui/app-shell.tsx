@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Bell, Plus } from "lucide-react";
+import Link from "next/link";
 import { GlobalSearch } from "@/components/ui/global-search";
+import { Sidebar } from "@/components/ui/sidebar";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -12,42 +13,47 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const canCreate = session.user.role !== "VIEWER";
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b border-neutral-200 px-6 h-14 flex items-center justify-between sticky top-0 z-40">
-        <nav className="flex items-center gap-1">
-          <Link href="/app/nuggets" className="font-bold text-neutral-900 mr-4 text-sm">Nuggets</Link>
-          <NavLink href="/app/nuggets">Repositório</NavLink>
-          <NavLink href="/app/sources">Fontes</NavLink>
-          <NavLink href="/app/participants">Participantes</NavLink>
-          {isAdmin && <NavLink href="/app/admin/taxonomy">Admin</NavLink>}
-        </nav>
-        <div className="flex items-center gap-3">
-          <GlobalSearch />
-          {canCreate && (
-            <Link
-              href="/app/nuggets/new"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors"
-            >
-              <Plus size={13} /> Nugget
-            </Link>
-          )}
-          <Link href="/app/account" className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900">
-            <div className="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-xs font-bold">
-              {(session.user.name ?? "?")[0].toUpperCase()}
-            </div>
-            <span className="hidden sm:inline">{session.user.name}</span>
-          </Link>
-        </div>
-      </header>
-      <main className="flex-1">{children}</main>
-    </div>
-  );
-}
+    <div className="flex h-screen overflow-hidden bg-neutral-50">
+      <Sidebar
+        isAdmin={isAdmin}
+        canCreate={canCreate}
+        user={{
+          name: session.user.name ?? "Usuário",
+          email: session.user.email ?? "",
+          squad: session.user.squad ?? "",
+        }}
+      />
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link href={href} className="px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors">
-      {children}
-    </Link>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Header */}
+        <header className="h-14 bg-white border-b border-neutral-200 flex items-center justify-between px-6 flex-shrink-0 z-30">
+          <GlobalSearch />
+          <div className="flex items-center gap-2">
+            {canCreate && (
+              <Link
+                href="/app/nuggets/new"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 transition-colors"
+              >
+                <Plus size={13} /> Nugget
+              </Link>
+            )}
+            {/* Notification bell — fase 2 */}
+            <button
+              disabled
+              title="Notificações — em breve"
+              className="p-2 rounded-lg text-neutral-300 cursor-not-allowed"
+              aria-label="Notificações (em breve)"
+            >
+              <Bell size={18} />
+            </button>
+          </div>
+        </header>
+
+        {/* Main content — pb-16 accounts for mobile bottom nav */}
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }

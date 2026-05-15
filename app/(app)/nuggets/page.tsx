@@ -22,7 +22,9 @@ export default async function NuggetsPage({ searchParams }: { searchParams: Sear
   const where = buildNuggetWhere(sp);
   const orderBy = buildNuggetOrderBy(sp);
 
-  const [initialItems, initialTotal, nuggetTypes, journeys, segments, allTags, users] =
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [initialItems, initialTotal, nuggetTypes, journeys, segments, allTags, users, totalAll, addedThisWeek, activeSources] =
     await Promise.all([
       prisma.nugget.findMany({ where, include: NUGGET_INCLUDE, orderBy, take: 50 }),
       prisma.nugget.count({ where }),
@@ -47,6 +49,9 @@ export default async function NuggetsPage({ searchParams }: { searchParams: Sear
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
+      prisma.nugget.count({ where: { deletedAt: null } }),
+      prisma.nugget.count({ where: { deletedAt: null, createdAt: { gte: oneWeekAgo } } }),
+      prisma.source.count({ where: { status: { not: "ARCHIVED" } } }),
     ]);
 
   const initialFilters = {
@@ -67,6 +72,11 @@ export default async function NuggetsPage({ searchParams }: { searchParams: Sear
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <StatCard label="Total de nuggets" value={totalAll} />
+        <StatCard label="Adicionados esta semana" value={addedThisWeek} />
+        <StatCard label="Fontes ativas" value={activeSources} />
+      </div>
       <NuggetsClient
         initialItems={initialItems}
         initialTotal={initialTotal}
@@ -78,6 +88,15 @@ export default async function NuggetsPage({ searchParams }: { searchParams: Sear
         users={users}
         canCreate={session.user.role !== "VIEWER"}
       />
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white border border-neutral-200 rounded-xl p-5">
+      <p className="text-xs text-neutral-400 font-medium mb-1">{label}</p>
+      <p className="text-3xl font-bold text-neutral-800">{value.toLocaleString("pt-BR")}</p>
     </div>
   );
 }
