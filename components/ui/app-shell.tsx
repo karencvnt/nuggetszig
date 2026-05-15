@@ -1,9 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Bell, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { GlobalSearch } from "@/components/ui/global-search";
 import { Sidebar } from "@/components/ui/sidebar";
+import { NotificationBell } from "@/components/ui/notification-bell";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -37,15 +38,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 <Plus size={13} /> Nugget
               </Link>
             )}
-            {/* Notification bell — fase 2 */}
-            <button
-              disabled
-              title="Notificações — em breve"
-              className="p-2 rounded-lg text-neutral-300 cursor-not-allowed"
-              aria-label="Notificações (em breve)"
-            >
-              <Bell size={18} />
-            </button>
+            <NotificationBell />
           </div>
         </header>
 

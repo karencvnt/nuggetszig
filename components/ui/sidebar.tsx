@@ -14,6 +14,7 @@ import {
   LogOut,
   User,
   Plus,
+  Upload,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -116,7 +117,8 @@ export function Sidebar({
     { href: "/app/nuggets", label: "Repositório", Icon: LayoutDashboard },
     { href: "/app/sources", label: "Fontes", Icon: FileText },
     { href: "/app/participants", label: "Participantes", Icon: Users },
-    { href: "/app/collections", label: "Coleções", Icon: BookOpen, disabled: true },
+    { href: "/app/collections", label: "Coleções", Icon: BookOpen },
+    ...(canCreate ? [{ href: "/app/import", label: "Importar", Icon: Upload }] : []),
     ...(isAdmin
       ? [{ href: "/app/admin/taxonomy", label: "Admin", Icon: Settings }]
       : []),

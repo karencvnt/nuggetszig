@@ -127,9 +127,79 @@ export async function POST(req: NextRequest) {
     include: {
       type: { select: { id: true, name: true, color: true } },
       source: { select: { id: true, title: true } },
-      tags: { include: { tag: true } },
+      tags: { include: { tag: { select: { id: true, name: true } } } },
     },
   });
 
+  // Trigger notifications (fire-and-forget)
+  triggerNuggetNotifications(nugget, session!.user.id).catch(() => {});
+
   return NextResponse.json(nugget, { status: 201 });
+}
+
+async function triggerNuggetNotifications(
+  nugget: { id: string; typeId: string; journeyId?: string | null; tags: { tag: { id: string; name: string } }[]; type: { name: string } },
+  creatorId: string
+) {
+  const tagIds = nugget.tags.map((t) => t.tag.id);
+  const tagNames = nugget.tags.map((t) => t.tag.name).join(", ");
+
+  // Users interested in any of these tags
+  const tagNotifUsers = tagIds.length > 0
+    ? await prisma.userInterestTag.findMany({
+        where: { tagId: { in: tagIds }, userId: { not: creatorId } },
+        select: { userId: true },
+      })
+    : [];
+
+  // Users interested in the journey
+  const journeyNotifUsers = nugget.journeyId
+    ? await prisma.userInterestJourney.findMany({
+        where: { journeyId: nugget.journeyId, userId: { not: creatorId } },
+        select: { userId: true },
+      })
+    : [];
+
+  const toCreate: { userId: string; type: "NEW_NUGGET_TAG" | "NEW_NUGGET_JOURNEY"; title: string; body: string; link: string }[] = [];
+
+  const seenTag = new Set<string>();
+  for (const { userId } of tagNotifUsers) {
+    if (!seenTag.has(userId)) {
+      seenTag.add(userId);
+      // Check user preference
+      const pref = await prisma.userNotificationPreference.findUnique({
+        where: { userId_eventType: { userId, eventType: "NEW_NUGGET_TAG" } },
+      });
+      if (pref?.isEnabled === false) continue;
+      toCreate.push({
+        userId,
+        type: "NEW_NUGGET_TAG",
+        title: `Novo nugget com ${tagNames}`,
+        body: `Um novo ${nugget.type.name} foi adicionado com uma tag do seu interesse.`,
+        link: `/app/nuggets/${nugget.id}`,
+      });
+    }
+  }
+
+  const seenJourney = new Set<string>();
+  for (const { userId } of journeyNotifUsers) {
+    if (!seenJourney.has(userId) && !seenTag.has(userId)) {
+      seenJourney.add(userId);
+      const pref = await prisma.userNotificationPreference.findUnique({
+        where: { userId_eventType: { userId, eventType: "NEW_NUGGET_JOURNEY" } },
+      });
+      if (pref?.isEnabled === false) continue;
+      toCreate.push({
+        userId,
+        type: "NEW_NUGGET_JOURNEY",
+        title: `Novo nugget na jornada que você acompanha`,
+        body: `Um novo ${nugget.type.name} foi adicionado em uma jornada do seu interesse.`,
+        link: `/app/nuggets/${nugget.id}`,
+      });
+    }
+  }
+
+  if (toCreate.length > 0) {
+    await prisma.notification.createMany({ data: toCreate });
+  }
 }
