@@ -259,11 +259,11 @@ export default function NuggetDetailClient({
     setRelSearch(q);
     if (!q.trim()) { setRelResults([]); return; }
     startSearching(async () => {
-      const res = await fetch(`/api/nuggets?q=${encodeURIComponent(q)}`);
-      const items = await res.json();
+      const res = await fetch(`/api/nuggets?q=${encodeURIComponent(q)}&limit=20`);
+      const data2 = await res.json();
       const relatedIds = new Set([data.id, ...allRelated.map((r) => r.id)]);
       setRelResults(
-        items
+        (data2.items ?? [])
           .filter((n: { id: string; content: string; type: { name: string; color: string }; status: string }) => !relatedIds.has(n.id))
           .slice(0, 8)
       );

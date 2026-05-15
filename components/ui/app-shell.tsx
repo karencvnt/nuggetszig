@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
+import { GlobalSearch } from "@/components/ui/global-search";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -21,6 +22,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           {isAdmin && <NavLink href="/app/admin/taxonomy">Admin</NavLink>}
         </nav>
         <div className="flex items-center gap-3">
+          <GlobalSearch />
           {canCreate && (
             <Link
               href="/app/nuggets/new"
